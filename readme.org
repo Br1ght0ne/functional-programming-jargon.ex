@@ -21,7 +21,6 @@ Where applicable, this document uses terms defined in the [[https://github.com/f
     - [[#further-readingsources][Further reading/Sources]]
   - [[#partial-application][Partial Application]]
   - [[#currying][Currying]]
-  - [[#auto-currying][Auto Currying]]
   - [[#function-composition][Function Composition]]
   - [[#continuation][Continuation]]
   - [[#purity][Purity]]
@@ -155,99 +154,58 @@ across invocations of the closure.
 :CUSTOM_ID: partial-application
 :END:
 
-Partially applying a function means creating a new function by
-pre-filling some of the arguments to the original function.
+Partially applying a function means creating a new function by pre-filling some
+of the arguments to the original function.
 
 #+BEGIN_SRC elixir
-    // Helper to create partially applied functions
-    // Takes a function and some arguments
-    const partial = (f, ...args) =>
-      // returns a function that takes the rest of the arguments
-      (...moreArgs) =>
-        // and calls the original function with all of them
-        f(...args, ...moreArgs)
+def add_three(a, b, c), do: a + b + c
 
-    // Something to apply
-    const add3 = (a, b, c) => a + b + c
+def five_plus(x), do: add_three(2, 3, x)
 
-    // Partially applying `2` and `3` to `add3` gives you a one-argument function
-    const fivePlus = partial(add3, 2, 3) // (c) => 2 + 3 + c
-
-    fivePlus(4) // 9
+five_plus(4) # => 9
 #+END_SRC
 
-You can also use =Function.prototype.bind= to partially apply a function
-in JS:
-
-#+BEGIN_SRC elixir
-    const add1More = add3.bind(null, 2, 3) // (c) => 2 + 3 + c
-#+END_SRC
-
-Partial application helps create simpler functions from more complex
-ones by baking in data when you have it. [[#currying][Curried]]
-functions are automatically partially applied.
+Partial application helps create simpler functions from more complex ones by
+baking in data when you have it. [[#currying][Curried]] functions are automatically partially
+applied.
 
 ** Currying
 :PROPERTIES:
 :CUSTOM_ID: currying
 :END:
 
-The process of converting a function that takes multiple arguments into
-a function that takes them one at a time.
+The process of converting a function that takes multiple arguments into a
+function that takes them one at a time.
 
-Each time the function is called it only accepts one argument and
-returns a function that takes one argument until all arguments are
-passed.
-
-#+BEGIN_SRC elixir
-    const sum = (a, b) => a + b
-
-    const curriedSum = (a) => (b) => a + b
-
-    curriedSum(40)(2) // 42.
-
-    const add2 = curriedSum(2) // (b) => 2 + b
-
-    add2(10) // 12
-#+END_SRC
-
-** Auto Currying
-:PROPERTIES:
-:CUSTOM_ID: auto-currying
-:END:
-
-Transforming a function that takes multiple arguments into one that if
-given less than its correct number of arguments returns a function that
-takes the rest. When the function gets the correct number of arguments
-it is then evaluated.
-
-lodash & Ramda have a =curry= function that works this way.
+Each time the function is called it only accepts one argument and returns a
+function that takes one argument until all arguments are passed.
 
 #+BEGIN_SRC elixir
-    const add = (x, y) => x + y
+def sum(a, b), do: a + b
 
-    const curriedAdd = _.curry(add)
-    curriedAdd(1, 2) // 3
-    curriedAdd(1) // (y) => 1 + y
-    curriedAdd(1)(2) // 3
+def curried_sum(a), do: fn b -> a + b end
+
+curried_sum(40).(2) # => 42
+
+add_two = curried_sum(2)
+
+add_two.(10) # 12
 #+END_SRC
-
-*Further reading* * [[http://fr.umio.us/favoring-curry/][Favoring
-Curry]] * [[https://www.youtube.com/watch?v=m3svKOdZijA][Hey Underscore,
-You're Doing It Wrong!]]
 
 ** Function Composition
 :PROPERTIES:
 :CUSTOM_ID: function-composition
 :END:
 
-The act of putting two functions together to form a third function where
-the output of one function is the input of the other.
+The act of putting two functions together to form a third function where the
+output of one function is the input of the other.
 
 #+BEGIN_SRC elixir
-    const compose = (f, g) => (a) => f(g(a)) // Definition
-    const floorAndToString = compose((val) => val.toString(), Math.floor) // Usage
-    floorAndToString(121.212121) // '121'
+def compose(f, g), do: fn a -> a |> g |> f end
+
+def floor_and_to_string(val), do: compose(Integer.to_string/1, floor/1)
+
+floor_and_to_string(121.212121) # => "121"
 #+END_SRC
 
 ** Continuation
@@ -255,37 +213,34 @@ the output of one function is the input of the other.
 :CUSTOM_ID: continuation
 :END:
 
-At any given point in a program, the part of the code that's yet to be
-executed is known as a continuation.
+At any given point in a program, the part of the code that's yet to be executed
+is known as a continuation.
 
 #+BEGIN_SRC elixir
-    const printAsString = (num) => console.log(`Given ${num}`)
+def print_as_string(num), do: IO.puts("Given #{num}")
 
-    const addOneAndContinue = (num, cc) => {
-      const result = num + 1
-      cc(result)
-    }
+def add_one_and_continue(num, cc) do
+  result = num + 1
+  cc.(result)
+end
 
-    addOneAndContinue(2, printAsString) // 'Given 3'
+add_one_and_continue(2, print_as_string/1) # => "Given 3"
 #+END_SRC
 
-Continuations are often seen in asynchronous programming when the
-program needs to wait to receive data before it can continue. The
-response is often passed off to the rest of the program, which is the
-continuation, once it's been received.
+Continuations are often seen in asynchronous programming when the program needs
+to wait to receive data before it can continue. The response is often passed
+off to the rest of the program, which is the continuation, once it's been
+received.
 
 #+BEGIN_SRC elixir
-    const continueProgramWith = (data) => {
-      // Continues program with data
-    }
+def continue_program_with(data) do
+  # Continues program with data
+end
 
-    readFileAsync('path/to/file', (err, response) => {
-      if (err) {
-        // handle error
-        return
-      }
-      continueProgramWith(response)
-    })
+case File.read("/path/to/file") do
+  {:ok, response} -> continue_program_with(response)
+  {:error, reason} => # handle error
+end
 #+END_SRC
 
 ** Purity
@@ -293,42 +248,24 @@ continuation, once it's been received.
 :CUSTOM_ID: purity
 :END:
 
-A function is pure if the return value is only determined by its input
-values, and does not produce side effects.
+A function is pure if the return value is only determined by its input values,
+and does not produce side effects.
 
 #+BEGIN_SRC elixir
-    const greet = (name) => `Hi, ${name}`
+def greet(name), do: "Hi, #{name}"
 
-    greet('Brianne') // 'Hi, Brianne'
+greet("Brianne") # => "Hi, Brianne"
 #+END_SRC
 
-As opposed to each of the following:
+As opposed to this function, which reads from the outside state (a file).
 
 #+BEGIN_SRC elixir
-    window.name = 'Brianne'
-
-    const greet = () => `Hi, ${window.name}`
-
-    greet() // "Hi, Brianne"
+def greet() do
+  name = File.read!("/path/to/file")
+  "Hi, #{name}"
+end
 #+END_SRC
-
-The above example's output is based on data stored outside of the
-function...
-
-#+BEGIN_SRC elixir
-    let greeting
-
-    const greet = (name) => {
-      greeting = `Hi, ${name}`
-    }
-
-    greet('Brianne')
-    greeting // "Hi, Brianne"
-#+END_SRC
-
-... and this one modifies state outside of the function.
-
-** Side effects
+** TODO Side effects
 :PROPERTIES:
 :CUSTOM_ID: side-effects
 :END:
@@ -345,7 +282,7 @@ mutable state.
     console.log('IO is a side effect!')
 #+END_SRC
 
-** Idempotent
+** TODO Idempotent
 :PROPERTIES:
 :CUSTOM_ID: idempotent
 :END:
@@ -365,7 +302,7 @@ a different result.
     sort(sort(sort([2, 1])))
 #+END_SRC
 
-** Point-Free Style
+** TODO Point-Free Style
 :PROPERTIES:
 :CUSTOM_ID: point-free-style
 :END:
@@ -391,12 +328,12 @@ Tacit programming.
 
 =incrementAll= identifies and uses the parameter =numbers=, so it is not
 points-free. =incrementAll2= is written just by combining functions and
-values, making no mention of its arguments. It *is* points-free.
+values, making no mention of its arguments. It *is* TODO points-free.
 
 Points-free function definitions look just like normal assignments
 without =function= or ==>=.
 
-** Predicate
+** TODO Predicate
 :PROPERTIES:
 :CUSTOM_ID: predicate
 :END:
@@ -410,7 +347,7 @@ A common use of a predicate is as the callback for array filter.
     ;[1, 2, 3, 4].filter(predicate) // [3, 4]
 #+END_SRC
 
-** Contracts
+** TODO Contracts
 :PROPERTIES:
 :CUSTOM_ID: contracts
 :END:
@@ -433,7 +370,7 @@ errors are generally reported whenever a contract is violated.
     addOne('some string') // Contract violated: expected int -> boolean
 #+END_SRC
 
-** Category
+** TODO Category
 :PROPERTIES:
 :CUSTOM_ID: category
 :END:
@@ -461,7 +398,7 @@ theory is great at uncovering new ways of composing things.
 - [[https://bartoszmilewski.com/2014/10/28/category-theory-for-programmers-the-preface/][Category
   Theory for Programmers]]
 
-** Value
+** TODO Value
 :PROPERTIES:
 :CUSTOM_ID: value
 :END:
@@ -476,7 +413,7 @@ Anything that can be assigned to a variable.
     undefined
 #+END_SRC
 
-** Constant
+** TODO Constant
 :PROPERTIES:
 :CUSTOM_ID: constant
 :END:
@@ -499,7 +436,7 @@ With the above two constants the following expression will always return
     john.age + five === ({name: 'John', age: 30}).age + (5)
 #+END_SRC
 
-** Functor
+** TODO Functor
 :PROPERTIES:
 :CUSTOM_ID: functor
 :END:
@@ -532,13 +469,13 @@ and
 
 #+BEGIN_SRC elixir
     const f = x => x + 1
-    const g = x => x * 2
+    const g = x => x * TODO 2
 
     ;[1, 2, 3].map(x => f(g(x))) // = [3, 5, 7]
     ;[1, 2, 3].map(g).map(f)     // = [3, 5, 7]
 #+END_SRC
 
-** Pointed Functor
+** TODO Pointed Functor
 :PROPERTIES:
 :CUSTOM_ID: pointed-functor
 :END:
@@ -551,7 +488,7 @@ ES2015 adds =Array.of= making arrays a pointed functor.
     Array.of(1) // [1]
 #+END_SRC
 
-** Lift
+** TODO Lift
 :PROPERTIES:
 :CUSTOM_ID: lift
 :END:
@@ -567,7 +504,7 @@ it easier to run functions on functors.
 #+BEGIN_SRC elixir
     const liftA2 = (f) => (a, b) => a.map(f).ap(b) // note it's `ap` and not `map`.
 
-    const mult = a => b => a * b
+    const mult = a => b => a * TODO b
 
     const liftedMult = liftA2(mult) // this function now works on functors like array
 
@@ -585,7 +522,7 @@ Lifting a one-argument function and applying it does the same thing as
     ;[2].map(increment) // [3]
 #+END_SRC
 
-** Referential Transparency
+** TODO Referential Transparency
 :PROPERTIES:
 :CUSTOM_ID: referential-transparency
 :END:
@@ -602,7 +539,7 @@ Say we have function greet:
 Any invocation of =greet()= can be replaced with =Hello World!= hence
 greet is referentially transparent.
 
-** Equational Reasoning
+** TODO Equational Reasoning
 :PROPERTIES:
 :CUSTOM_ID: equational-reasoning
 :END:
@@ -610,7 +547,7 @@ greet is referentially transparent.
 When an application is composed of expressions and devoid of side
 effects, truths about the system can be derived from the parts.
 
-** Lambda
+** TODO Lambda
 :PROPERTIES:
 :CUSTOM_ID: lambda
 :END:
@@ -637,7 +574,7 @@ You can assign a lambda to a variable.
     const add1 = (a) => a + 1
 #+END_SRC
 
-** Lambda Calculus
+** TODO Lambda Calculus
 :PROPERTIES:
 :CUSTOM_ID: lambda-calculus
 :END:
@@ -646,7 +583,7 @@ A branch of mathematics that uses functions to create a
 [[https://en.wikipedia.org/wiki/Lambda_calculus][universal model of
 computation]].
 
-** Lazy evaluation
+** TODO Lazy evaluation
 :PROPERTIES:
 :CUSTOM_ID: lazy-evaluation
 :END:
@@ -670,7 +607,7 @@ of commands is significant.
     randIter.next() // Each execution gives a random value, expression is evaluated on need.
 #+END_SRC
 
-** Monoid
+** TODO Monoid
 :PROPERTIES:
 :CUSTOM_ID: monoid
 :END:
@@ -728,7 +665,7 @@ form a monoid:
     compose(foo, identity) ≍ compose(identity, foo) ≍ foo
 #+END_SRC
 
-** Monad
+** TODO Monad
 :PROPERTIES:
 :CUSTOM_ID: monad
 :END:
@@ -753,7 +690,7 @@ resulting nested object.
 =of= is also known as =return= in other functional languages. =chain= is
 also known as =flatmap= and =bind= in other languages.
 
-** Comonad
+** TODO Comonad
 :PROPERTIES:
 :CUSTOM_ID: comonad
 :END:
@@ -785,7 +722,7 @@ same type as the comonad.
     CoIdentity(1).extend((co) => co.extract() + 1) // CoIdentity(2)
 #+END_SRC
 
-** Applicative Functor
+** TODO Applicative Functor
 :PROPERTIES:
 :CUSTOM_ID: applicative-functor
 :END:
@@ -824,14 +761,14 @@ the result:
     partiallyAppliedAdds.ap(arg2) // [5, 6, 7, 8]
 #+END_SRC
 
-** Morphism
+** TODO Morphism
 :PROPERTIES:
 :CUSTOM_ID: morphism
 :END:
 
 A transformation function.
 
-*** Endomorphism
+*** TODO Endomorphism
 :PROPERTIES:
 :CUSTOM_ID: endomorphism
 :END:
@@ -846,7 +783,7 @@ A function where the input type is the same as the output.
     const decrement = (x) => x - 1
 #+END_SRC
 
-*** Isomorphism
+*** TODO Isomorphism
 :PROPERTIES:
 :CUSTOM_ID: isomorphism
 :END:
@@ -868,7 +805,7 @@ object ={x: 2, y: 3}=.
     pairToCoords(coordsToPair({x: 1, y: 2})) // {x: 1, y: 2}
 #+END_SRC
 
-*** Homomorphism
+*** TODO Homomorphism
 :PROPERTIES:
 :CUSTOM_ID: homomorphism
 :END:
@@ -883,7 +820,7 @@ category's structure under the mapping.
     Either.of(_.toUpper).ap(Either.of("oreos")) == Either.of(_.toUpper("oreos"))
 #+END_SRC
 
-*** Catamorphism
+*** TODO Catamorphism
 :PROPERTIES:
 :CUSTOM_ID: catamorphism
 :END:
@@ -898,7 +835,7 @@ single value.
     sum([1, 2, 3, 4, 5]) // 15
 #+END_SRC
 
-*** Anamorphism
+*** TODO Anamorphism
 :PROPERTIES:
 :CUSTOM_ID: anamorphism
 :END:
@@ -924,14 +861,14 @@ It generates a list from a single value.
     countDown(5) // [5, 4, 3, 2, 1]
 #+END_SRC
 
-*** Hylomorphism
+*** TODO Hylomorphism
 :PROPERTIES:
 :CUSTOM_ID: hylomorphism
 :END:
 
 The combination of anamorphism and catamorphism.
 
-*** Paramorphism
+*** TODO Paramorphism
 :PROPERTIES:
 :CUSTOM_ID: paramorphism
 :END:
@@ -968,7 +905,7 @@ The third parameter in the reducer (in the above example, =[x, ... xs]=)
 is kind of like having a history of what got you to your current acc
 value.
 
-*** Apomorphism
+*** TODO Apomorphism
 :PROPERTIES:
 :CUSTOM_ID: apomorphism
 :END:
@@ -978,7 +915,7 @@ of catamorphism. Whereas with paramorphism, you combine with access to
 the accumulator and what has been accumulated, apomorphism lets you
 =unfold= with the potential to return early.
 
-** Setoid
+** TODO Setoid
 :PROPERTIES:
 :CUSTOM_ID: setoid
 :END:
@@ -1006,7 +943,7 @@ Make array a setoid:
     ;[1, 2].equals([0]) // false
 #+END_SRC
 
-** Semigroup
+** TODO Semigroup
 :PROPERTIES:
 :CUSTOM_ID: semigroup
 :END:
@@ -1018,7 +955,7 @@ object of the same type.
     ;[1].concat([2]) // [1, 2]
 #+END_SRC
 
-** Foldable
+** TODO Foldable
 :PROPERTIES:
 :CUSTOM_ID: foldable
 :END:
@@ -1032,7 +969,7 @@ reduce it to a single value.
     sum([1, 2, 3]) // 6
 #+END_SRC
 
-** Lens
+** TODO Lens
 :PROPERTIES:
 :CUSTOM_ID: lens
 :END:
@@ -1089,7 +1026,7 @@ Other implementations: *
 syntax sugar and a lot of powerful features *
 [[http://www.kovach.me/nanoscope/][nanoscope]] - Fluent-interface
 
-** Type Signatures
+** TODO Type Signatures
 :PROPERTIES:
 :CUSTOM_ID: type-signatures
 :END:
@@ -1128,14 +1065,14 @@ values of type =a=, and returns an array of values of type =b=.
     const map = (f) => (list) => list.map(f)
 #+END_SRC
 
-*Further reading* *
+*Further reading* TODO *
 [[https://github.com/ramda/ramda/wiki/Type-Signatures][Ramda's type
 signatures]] *
 [[https://drboolean.gitbooks.io/mostly-adequate-guide/content/ch7.html#whats-your-type][Mostly
-Adequate Guide]] * [[http://stackoverflow.com/a/399392/22425][What is
+Adequate Guide]] * TODO [[http://stackoverflow.com/a/399392/22425][What is
 Hindley-Milner?]] on Stack Overflow
 
-** Algebraic data type
+** TODO Algebraic data type
 :PROPERTIES:
 :CUSTOM_ID: algebraic-data-type
 :END:
@@ -1144,7 +1081,7 @@ A composite type made from putting other types together. Two common
 classes of algebraic types are [[#sum-type][sum]] and
 [[#product-type][product]].
 
-*** Sum type
+*** TODO Sum type
 :PROPERTIES:
 :CUSTOM_ID: sum-type
 :END:
@@ -1177,12 +1114,12 @@ and TypeScript has
 [[https://www.typescriptlang.org/docs/handbook/enums.html][Enums]] to
 serve the same role.
 
-*** Product type
+*** TODO Product type
 :PROPERTIES:
 :CUSTOM_ID: product-type
 :END:
 
-A *product* type combines types together in a way you're probably more
+A *product* TODO type combines types together in a way you're probably more
 familiar with:
 
 #+BEGIN_SRC elixir
@@ -1196,7 +1133,7 @@ tuple type which is the simplest formulation of a product type.
 
 See also [[https://en.wikipedia.org/wiki/Set_theory][Set theory]].
 
-** Option
+** TODO Option
 :PROPERTIES:
 :CUSTOM_ID: option
 :END:
@@ -1253,14 +1190,14 @@ Use =chain= to sequence functions that return =Option=s
 =Option= is also known as =Maybe=. =Some= is sometimes called =Just=.
 =None= is sometimes called =Nothing=.
 
-** Function
+** TODO Function
 :PROPERTIES:
 :CUSTOM_ID: function
 :END:
 
-A *function* =f :: A => B= is an expression - often called arrow or
-lambda expression - with *exactly one (immutable)* parameter of type =A=
-and *exactly one* return value of type =B=. That value depends entirely
+A *function* TODO =f :: A => B= is an expression - often called arrow or
+lambda expression - with *exactly one (immutable)* TODO parameter of type =A=
+and *exactly one* TODO return value of type =B=. That value depends entirely
 on the argument, making functions context-independant, or
 [[#referential-transparency][referentially transparent]]. What is
 implied here is that a function must not produce any hidden
@@ -1272,12 +1209,12 @@ over behaviour:
 
 #+BEGIN_SRC elixir
     // times2 :: Number -> Number
-    const times2 = n => n * 2
+    const times2 = n => n * TODO 2
 
     [1, 2, 3].map(times2) // [2, 4, 6]
 #+END_SRC
 
-** Partial function
+** TODO Partial function
 :PROPERTIES:
 :CUSTOM_ID: partial-function
 :END:
@@ -1314,7 +1251,7 @@ reason about and can lead to runtime errors. Some examples:
     // RangeError: Maximum call stack size exceeded
 #+END_SRC
 
-*** Dealing with partial functions
+*** TODO Dealing with partial functions
 :PROPERTIES:
 :CUSTOM_ID: dealing-with-partial-functions
 :END:
